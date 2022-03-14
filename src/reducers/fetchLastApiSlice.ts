@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { RootState } from '../store';
+import { RootState } from '../store/store';
 import { StockState } from '../types';
 
 const initialState: StockState = {

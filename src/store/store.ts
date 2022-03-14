@@ -1,6 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import fetchLastApiSlice from './reducers/fetchLastApiSlice';
-import fetchValuesPerKeyApiSlice from './reducers/fetchValuesPerKeyApiSlice';
+import fetchLastApiSlice from '../reducers/fetchLastApiSlice';
+import fetchValuesPerKeyApiSlice from '../reducers/fetchValuesPerKeyApiSlice';
 
 export const store = configureStore({
   reducer: {
