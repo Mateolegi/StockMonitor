@@ -1,23 +1,25 @@
-import { FlatList, StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import { useEffect, useState } from 'react';
-import { Button, SearchBar } from 'react-native-elements';
+import { SearchBar } from 'react-native-elements';
 
 import StockCard from '../components/StockCard/StockCard';
-import { Text, View } from '../components/Themed';
+import { useThemeColor, View } from '../components/Themed';
 import { RootTabScreenProps } from '../../types';
 import { useAppDispatch, useAppSelector } from '../hooks/reduxHooks';
-import { fetchDataFailure, fetchDataSuccess, stocksSelector } from '../reducers/fetchLastApiSlice';
-import { Stock } from '../types';
-import { LAST } from '../constants/Endpoints';
+import { Stock, StockHistory } from '../types';
+import { LAST, VALUES_PER_KEY } from '../constants/Endpoints';
 import { ScrollView } from 'react-native-gesture-handler';
+import { fetchDataFailure as fetchDataFailureLast, fetchDataSuccess as fetchDataSuccessLast, stocksSelector } from '../reducers/fetchLastApiSlice';
+import { fetchDataSuccess as fetchDataSuccessValuePerKey, fetchDataFailure as fetchDataFailureValuePerKey } from '../reducers/fetchValuesPerKeyApiSlice';
 
 export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'>) {
 
-  const stocks = useAppSelector(stocksSelector);
   const dispatch = useAppDispatch();
+  const stocks = useAppSelector(stocksSelector);
+  const [stockState, setStockState] = useState<Stock[]>([]);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
+  const fetchLastValues = () => {
     fetch(LAST)
       .then(res => res.json())
       .then(json => {
@@ -27,51 +29,59 @@ export default function TabOneScreen({ navigation }: RootTabScreenProps<'TabOne'
         }
         return stockList;
       })
-      .then((json: Stock[]) => dispatch(fetchDataSuccess(json)))
-      .catch(() => dispatch(fetchDataFailure()));
+      .then((json: Stock[]) => {
+        dispatch(fetchDataSuccessLast(json));
+        setStockState(json);
+        json.forEach(stock => fetchValuesPerKey(stock.key));
+      })
+      .catch(() => dispatch(fetchDataFailureLast()));
+  };
+
+  const fetchValuesPerKey = (key: string) => {
+    fetch(VALUES_PER_KEY.replaceAll(':key', key))
+      .then(res => res.json())
+      .then((stockHistory: StockHistory) => {
+        dispatch(fetchDataSuccessValuePerKey(stockHistory));
+      })
+      .catch(() => dispatch(fetchDataFailureValuePerKey()));
+  };
+
+  useEffect(() => {
+    // TODO: Separar lógica del componente de vista
+    fetchLastValues();
   }, []);
 
   const updateSearch = (text: string): void => {
     setSearch(text);
+    setStockState(stocks.filter(stock => stock.name.toLowerCase().includes(text.toLowerCase()) 
+                                      || stock.key.toLowerCase().includes(text.toLowerCase())));
   };
 
   const renderStockCard = (stock: Stock) => {
-    return <StockCard key={stock.key} keyApi={stock.key} name={stock.name} unit={stock.unit} value={stock.value} />;
+    return <StockCard key={stock.key} keyApi={stock.key}/>;
   };
 
   return (
     <ScrollView>
       <SearchBar
         placeholder="Search"
+        platform={Platform.OS === 'android' ? 'android' : 'ios'}
         onChangeText={updateSearch}
         value={search}
-        style={{ width: '100%' }}
+        style={styles.searchBar}
+        containerStyle={{backgroundColor: useThemeColor({ light: '#fff', dark: '#000' }, 'background')}}
+        inputContainerStyle={{backgroundColor: useThemeColor({ light: '#e6e6e6', dark: '#1c1c1c' }, 'background')}}
+        inputStyle={{color: useThemeColor({ light: '#000', dark: '#8c8c8c' }, 'text')}}
       />
       <View>
-        {stocks.map(renderStockCard)}
+        {stockState.map(renderStockCard)}
       </View>
     </ScrollView>
-    // <View style={styles.container}>
-    //   <SearchBar
-    //     placeholder="Search"
-    //     onChangeText={updateSearch}
-    //     value={search}
-    //     style={{ width: '100%' }}
-    //   />
-    //   <FlatList
-    //     data={stocks}
-    //     renderItem={({ item }) => renderStockCard(item)}
-    //     keyExtractor={item => item.key}
-    //     style={{ width: '100%' }}
-    //   />
-    //   {/* <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" /> */}
-    // </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    // flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%'
@@ -80,9 +90,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
   },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  searchBar: {
+    width: '100%',
   },
 });
